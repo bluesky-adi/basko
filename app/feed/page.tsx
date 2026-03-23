@@ -1,3 +1,4 @@
+<h1 className="text-red-500 text-4xl">TEST UI CHANGE</h1>
 "use client"
 
 import { useState, useEffect } from "react"
@@ -7,19 +8,19 @@ import { Heart, MessageSquare, Share2, MoreHorizontal, Moon, Sun } from "lucide-
 export default function Feed() {
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [isDarkMode, setIsDarkMode] = useState(false) // State for the toggle
+  const [isDarkMode, setIsDarkMode] = useState(false)
+
   const supabase = createClient()
 
   useEffect(() => {
     fetchPosts()
-    // Check system preference on load
+
     if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setIsDarkMode(true)
       document.documentElement.classList.add('dark')
     }
   }, [])
 
-  // Manual Toggle Function
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode)
     document.documentElement.classList.toggle('dark')
@@ -27,139 +28,139 @@ export default function Feed() {
 
   const fetchPosts = async () => {
     setLoading(true)
+
     const { data } = await supabase
       .from('posts')
       .select(`*, author:profiles(full_name, college_name)`)
       .order('created_at', { ascending: false })
+
     if (data) setPosts(data)
     setLoading(false)
   }
 
   return (
-    // Main Wrapper
-    <div className="min-h-screen transition-colors duration-300">
-      
-      {/* 1. Header (Matches your Screenshot) */}
-      <nav className="sticky top-0 z-50 bg-[var(--background)]/80 backdrop-blur-md h-20 flex items-center justify-between px-6 md:px-12 transition-colors duration-300">
+    <div className="min-h-screen relative">
+
+      {/* 🌌 BACKGROUND */}
+      <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,_#1a1a2e,_#0f111a)]" />
+      <div className="fixed top-[-100px] left-1/2 -translate-x-1/2 w-[400px] h-[400px] bg-purple-500/20 blur-3xl rounded-full -z-10" />
+
+      {/* NAVBAR */}
+      <nav className="sticky top-0 z-50 bg-[var(--background)]/60 backdrop-blur-xl border-b border-white/10 h-20 flex items-center justify-between px-6">
+
         <div className="flex items-center gap-2">
-            {/* Logo Icon */}
-            <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            </div>
-            <span className="text-xl font-bold tracking-tight text-[var(--foreground)]">Basko</span>
+          <div className="w-8 h-8 bg-violet-600 rounded-lg flex items-center justify-center text-white font-bold">
+            B
+          </div>
+          <span className="text-xl font-semibold">Basko</span>
         </div>
-        
-        <div className="flex items-center gap-4">
-             {/* THEME TOGGLE BUTTON */}
-             <button 
-                onClick={toggleTheme}
-                className="px-4 py-2 rounded-full bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] text-sm font-medium flex items-center gap-2 shadow-sm"
-             >
-                {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                {isDarkMode ? "Light Mode" : "Dark Mode"}
-             </button>
-             
-             {/* Menu Button (Visual Only) */}
-             <button className="px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--foreground)] text-sm font-medium">
-                Menu ▾
-             </button>
-        </div>
+
+        <button
+          onClick={toggleTheme}
+          className="px-4 py-2 rounded-full bg-[var(--card)] border border-[var(--border)] text-sm flex items-center gap-2"
+        >
+          {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
+
       </nav>
 
-      {/* 2. Main Content Column (Restricted Width for 'Feed' Look) */}
-      <main className="max-w-[800px] mx-auto px-6 pt-8 pb-24 space-y-8">
-        
-        {/* Title Section */}
-        <div className="space-y-2">
-            <h1 className="text-4xl font-bold text-[var(--foreground)] tracking-tight">Travel Feed</h1>
-            <p className="text-[var(--muted-foreground)]">Discover tips, itineraries and stories from fellow travelers.</p>
+      {/* MAIN */}
+      <main className="max-w-[720px] mx-auto px-4 pt-8 pb-24 space-y-8">
+
+        <div>
+          <h1 className="text-3xl font-semibold">Travel Feed</h1>
+          <p className="text-sm text-[var(--muted-foreground)]">
+            Discover trips, ideas, and stories.
+          </p>
         </div>
 
-        {/* FEED LOOP */}
         {loading ? (
-             <div className="py-20 text-center text-[var(--muted-foreground)]">Loading feed...</div>
+          <div className="text-center py-20">Loading...</div>
         ) : (
           posts.map((post) => (
-            // ✨ THE CARD (Matches your Screenshot Layout)
-            <div key={post.id} className="bg-[var(--card)] rounded-2xl p-6 shadow-sm border border-[var(--border)] transition-all">
-                
-                {/* A. Card Header */}
-                <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                        {/* Avatar */}
-                        <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
-                            {/* If user has image, show it, otherwise initial */}
-                            <span className="text-violet-600 font-bold text-lg">{post.author?.full_name?.[0]}</span>
-                        </div>
-                        <div>
-                            <h3 className="text-sm font-bold text-[var(--foreground)] leading-none">
-                                {post.author?.full_name}
-                            </h3>
-                            <div className="flex items-center gap-2 mt-1">
-                                <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                                <p className="text-xs text-[var(--muted-foreground)]">{post.author?.college_name || "Traveler"}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <button className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
-                        <MoreHorizontal className="w-5 h-5" />
-                    </button>
-                </div>
+            <div
+              key={post.id}
+              className="
+              bg-white/5
+              backdrop-blur-xl
+              rounded-2xl
+              p-5
+              border border-white/10
+              shadow-lg
+              hover:scale-[1.01]
+              transition
+            "
+            >
 
-                {/* B. Title & Content */}
-                <div className="mb-5">
-                    <h2 className="text-xl font-bold text-[var(--foreground)] mb-2">
-                         {/* We fake a title if none exists, to match the screenshot vibe */}
-                        {post.city_tag ? `Weekend Trip to ${post.city_tag}!` : "My Travel Adventure"}
-                    </h2>
-                    <p className="text-sm text-[var(--muted-foreground)] leading-relaxed">
-                        {post.content}
+              {/* HEADER */}
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex gap-3 items-center">
+                  <div className="w-10 h-10 rounded-full bg-purple-500/30 flex items-center justify-center">
+                    {post.author?.full_name?.[0]}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{post.author?.full_name}</p>
+                    <p className="text-xs text-[var(--muted-foreground)]">
+                      {post.author?.college_name}
                     </p>
+                  </div>
                 </div>
+                <MoreHorizontal className="w-5 h-5 text-gray-400" />
+              </div>
 
-                {/* C. Wide Cinematic Image */}
-                {post.image_url && (
-                    <div className="w-full aspect-[21/9] rounded-xl overflow-hidden mb-5 bg-gray-100">
-                        <img 
-                            src={post.image_url} 
-                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" 
-                            alt="Post Media" 
-                        />
-                    </div>
+              {/* TITLE */}
+              <h2 className="text-lg font-semibold mb-2">
+                {post.city_tag ? `Trip to ${post.city_tag}` : "Travel Story"}
+              </h2>
+
+              {/* CONTENT */}
+              <p className="text-sm text-[var(--muted-foreground)] mb-4">
+                {post.content}
+              </p>
+
+              {/* IMAGE */}
+              {post.image_url && (
+                <div className="rounded-xl overflow-hidden mb-4">
+                  <img
+                    src={post.image_url}
+                    className="w-full h-[220px] object-cover hover:scale-110 transition duration-700"
+                  />
+                </div>
+              )}
+
+              {/* TAGS */}
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {post.city_tag && (
+                  <span className="px-3 py-1 text-xs rounded-full bg-purple-500/20 text-purple-300">
+                    #{post.city_tag}
+                  </span>
                 )}
+                <span className="px-3 py-1 text-xs rounded-full bg-white/10 text-gray-300">
+                  #Basko
+                </span>
+              </div>
 
-                {/* D. Footer (Hashtags + Stats) */}
-                <div>
-                    {/* Tags */}
-                    <div className="flex items-center gap-2 mb-4 text-sm font-medium text-violet-600">
-                        {post.city_tag && <span>#{post.city_tag.replace(/\s/g, '')}</span>}
-                        <span>#StudentTravel</span>
-                        <span>#Basko</span>
-                    </div>
+              {/* ACTIONS */}
+              <div className="flex justify-between border-t border-white/10 pt-4">
 
-                    {/* Stats Row */}
-                    <div className="flex items-center justify-between border-t border-[var(--border)] pt-4">
-                        
-                        {/* Left: Likes & Comments (Text) */}
-                        <div className="flex items-center gap-6">
-                            <button className="flex items-center gap-2 text-sm font-semibold text-rose-500">
-                                <Heart className="w-5 h-5 fill-rose-500" />
-                                <span>45 Likes</span>
-                            </button>
-                            <button className="flex items-center gap-2 text-sm font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
-                                <MessageSquare className="w-5 h-5" />
-                                <span>12 Comments</span>
-                            </button>
-                        </div>
+                <div className="flex gap-6 text-sm">
+                  <button className="flex items-center gap-2 text-rose-400">
+                    <Heart className="w-5 h-5 fill-rose-400" />
+                    45
+                  </button>
 
-                        {/* Right: Action Icons */}
-                        <div className="flex items-center gap-4 text-[var(--muted-foreground)]">
-                             <button className="hover:text-[var(--foreground)]"><MessageSquare className="w-5 h-5" /></button>
-                             <button className="hover:text-[var(--foreground)]"><Share2 className="w-5 h-5" /></button>
-                             <button className="hover:text-[var(--foreground)]"><Heart className="w-5 h-5" /></button>
-                        </div>
-                    </div>
+                  <button className="flex items-center gap-2 text-gray-400">
+                    <MessageSquare className="w-5 h-5" />
+                    12
+                  </button>
                 </div>
+
+                <div className="flex gap-4 text-gray-400">
+                  <Share2 className="w-5 h-5 hover:text-purple-400" />
+                  <Heart className="w-5 h-5 hover:text-purple-400" />
+                </div>
+
+              </div>
 
             </div>
           ))

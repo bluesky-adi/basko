@@ -24,13 +24,31 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-[#e5e5e5] flex justify-center min-h-screen`}>
-        {/* THE PHONE CONTAINER */}
-        <main className="w-full max-w-[430px] bg-white min-h-screen relative shadow-2xl flex flex-col">
-            <div className="flex-1 pb-20"> {/* Push content above bottom nav */}
-               {children}
-            </div>
-            <BottomNav />
+      <body
+        className={`${inter.className} min-h-screen flex justify-center items-start`}
+      >
+        {/* 🌌 CINEMATIC BACKGROUND */}
+        <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,_#1a1a2e,_#0f111a)]" />
+
+        {/* 🌟 MAIN APP CONTAINER */}
+        <main
+          className="
+          w-full 
+          max-w-[480px] 
+          min-h-screen 
+          flex flex-col 
+          relative 
+          border-x border-white/10
+          backdrop-blur-xl
+        "
+        >
+          {/* CONTENT AREA */}
+          <div className="flex-1 pb-20 px-4 pt-4">
+            {children}
+          </div>
+
+          {/* BOTTOM NAV */}
+          <BottomNav />
         </main>
       </body>
     </html>

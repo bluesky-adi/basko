@@ -4,41 +4,41 @@
 
 @layer base {
   :root {
-    /* ☀️ LIGHT MODE (From your 'travel feed.png') */
-    --background: #F8F9FE;  /* Very faint cool white */
-    --foreground: #1E293B;  /* Dark Slate Text */
+    /* LIGHT MODE */
+    --background: #F8F9FE;
+    --foreground: #1E293B;
 
-    --card: #FFFFFF;        /* Pure White Cards */
+    --card: #FFFFFF;
     --card-foreground: #1E293B;
 
-    --primary: #8B5CF6;     /* The Basko Purple */
+    --primary: #8B5CF6;
     --primary-foreground: #FFFFFF;
 
     --muted: #F1F5F9;
-    --muted-foreground: #64748B; /* Grey text for subtitles */
+    --muted-foreground: #64748B;
 
     --border: #E2E8F0;
     --input: #E2E8F0;
-    
-    --radius: 1rem; /* rounded-2xl */
+
+    --radius: 1rem;
   }
 
-  /* 🌙 DARK MODE (From your 'travel feed dark .png') */
   .dark {
-    --background: #0F111A;  /* Deep Midnight Background */
-    --foreground: #E2E8F0;  /* Light Grey Text */
+    /* DARK MODE */
+    --background: #0F111A;
+    --foreground: #E2E8F0;
 
-    --card: #1E2028;        /* Dark Slate Card */
+    --card: rgba(255, 255, 255, 0.05);
     --card-foreground: #F8FAFC;
 
-    --primary: #A78BFA;     /* Lighter Purple for Dark Mode */
+    --primary: #A78BFA;
     --primary-foreground: #FFFFFF;
 
     --muted: #1E293B;
-    --muted-foreground: #94A3B8; /* Lighter Grey for subtitles */
+    --muted-foreground: #94A3B8;
 
-    --border: #2D3748;
-    --input: #2D3748;
+    --border: rgba(255, 255, 255, 0.1);
+    --input: rgba(255, 255, 255, 0.1);
   }
 }
 
@@ -46,10 +46,11 @@
   * {
     border-color: var(--border);
   }
+
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: sans-serif; /* Clean Sans-Serif */
-    transition: background-color 0.3s ease, color 0.3s ease; /* Smooth toggle */
+    font-family: sans-serif;
+    transition: all 0.3s ease;
   }
 }
