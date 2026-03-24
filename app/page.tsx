@@ -2,11 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2, Lock, Mail, ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 
@@ -14,18 +9,15 @@ export default function Home() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  
-  // NEW: State to handle "Forgot Password" view
-  const [view, setView] = useState<"auth" | "forgot">("auth") 
+  const [view, setView] = useState<"auth" | "forgot">("auth")
 
   const router = useRouter()
   const supabase = createClient()
 
-  // Check if already logged in
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      if (session) router.push("/spaces")
+      if (session) router.push("/explore")
     }
     checkUser()
   }, [router])
@@ -34,7 +26,7 @@ export default function Home() {
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) alert(error.message)
-    else router.push("/spaces")
+    else router.push("/explore")
     setLoading(false)
   }
 
@@ -46,121 +38,137 @@ export default function Home() {
     setLoading(false)
   }
 
-  // NEW: Reset Password Logic
   const handleResetPassword = async () => {
-    if(!email) return alert("Please enter your email.")
-    setLoading(true)
-    
-    // This sends a magic link to their email
-    // ... inside handleResetPassword
-const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    // OLD: 'http://localhost:3000/update-password'
-    // NEW: Point to the callback, which then redirects to update-password
-    redirectTo: 'http://localhost:3000/auth/callback?next=/update-password',
-})
-// ...
-   
+    if (!email) return alert("Enter email")
 
-    if (error) {
-        alert("Error: " + error.message)
-    } else {
-        alert("Check your email for the password reset link!")
-        setView("auth") // Go back to login
+    setLoading(true)
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'http://localhost:3000/auth/callback?next=/update-password',
+    })
+
+    if (error) alert(error.message)
+    else {
+      alert("Check your email!")
+      setView("auth")
     }
+
     setLoading(false)
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      
-      {/* VIEW 1: LOGIN / SIGNUP */}
-      {view === "auth" && (
-        <Card className="w-full max-w-md shadow-xl border-none">
-          <CardHeader className="text-center space-y-1">
-            <h1 className="text-3xl font-extrabold text-basko-brand tracking-tighter">Basko.</h1>
-            <p className="text-gray-500 text-sm">The Student Travel Community</p>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="login">Login</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="login" className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input className="pl-9" placeholder="student@college.edu" onChange={(e) => setEmail(e.target.value)} />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <Label>Password</Label>
-                    {/* BUTTON TO SWITCH TO FORGOT MODE */}
-                    <button 
-                        onClick={() => setView("forgot")}
-                        className="text-xs text-basko-brand hover:underline font-medium"
-                    >
-                        Forgot Password?
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input type="password" className="pl-9" placeholder="••••••••" onChange={(e) => setPassword(e.target.value)} />
-                  </div>
-                </div>
-                <Button onClick={handleLogin} disabled={loading} className="w-full bg-basko-brand hover:bg-basko-glow">
-                  {loading ? <Loader2 className="animate-spin" /> : "Login ➜"}
-                </Button>
-              </TabsContent>
+    <div className="min-h-screen flex items-center justify-center px-4 relative">
 
-              <TabsContent value="signup" className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input placeholder="student@college.edu" onChange={(e) => setEmail(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Password</Label>
-                  <Input type="password" placeholder="Create a password" onChange={(e) => setPassword(e.target.value)} />
-                </div>
-                <Button onClick={handleSignUp} disabled={loading} variant="outline" className="w-full border-basko-brand text-basko-brand">
-                  {loading ? <Loader2 className="animate-spin" /> : "Create Account"}
-                </Button>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-      )}
+      {/* 🌌 BACKGROUND GLOW */}
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_#1a1a2e,_#0f111a)]" />
+      <div className="absolute top-[-120px] left-1/2 -translate-x-1/2 w-[400px] h-[400px] bg-purple-500/20 blur-3xl rounded-full -z-10" />
 
-      {/* VIEW 2: FORGOT PASSWORD */}
-      {view === "forgot" && (
-        <Card className="w-full max-w-md shadow-xl border-none">
-             <CardHeader className="text-center">
-                <h2 className="text-xl font-bold">Reset Password 🔐</h2>
-                <p className="text-gray-500 text-xs">Enter your email to receive a reset link</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input className="pl-9" placeholder="student@college.edu" onChange={(e) => setEmail(e.target.value)} />
-                  </div>
-                </div>
-                <Button onClick={handleResetPassword} disabled={loading} className="w-full bg-black text-white">
-                  {loading ? <Loader2 className="animate-spin" /> : "Send Reset Link"}
-                </Button>
-            </CardContent>
-            <CardFooter>
-                <Button variant="ghost" className="w-full gap-2" onClick={() => setView("auth")}>
-                    <ArrowLeft className="w-4 h-4" /> Back to Login
-                </Button>
-            </CardFooter>
-        </Card>
-      )}
+      {/* CARD */}
+      <div className="
+        w-full max-w-md
+        bg-white/5
+        backdrop-blur-xl
+        border border-white/10
+        rounded-2xl
+        p-6
+        shadow-xl
+      ">
 
+        {/* TITLE */}
+        <div className="text-center mb-6">
+          <h1 className="text-4xl font-semibold tracking-tight">
+            Basko<span className="text-purple-400">.</span>
+          </h1>
+          <p className="text-sm text-gray-400 mt-2">
+            The Student Travel Community
+          </p>
+        </div>
+
+        {/* AUTH VIEW */}
+        {view === "auth" && (
+          <div className="space-y-4">
+
+            {/* EMAIL */}
+            <div>
+              <p className="text-sm mb-1">Email</p>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                <input
+                  className="w-full bg-white/10 border border-white/10 rounded-xl pl-9 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400/50"
+                  placeholder="student@college.edu"
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* PASSWORD */}
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <p>Password</p>
+                <button onClick={() => setView("forgot")} className="text-purple-400 text-xs">
+                  Forgot?
+                </button>
+              </div>
+
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                <input
+                  type="password"
+                  className="w-full bg-white/10 border border-white/10 rounded-xl pl-9 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400/50"
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* BUTTONS */}
+            <button
+              onClick={handleLogin}
+              className="w-full bg-purple-500 hover:bg-purple-600 transition py-3 rounded-xl"
+            >
+              {loading ? <Loader2 className="animate-spin mx-auto" /> : "Login →"}
+            </button>
+
+            <button
+              onClick={handleSignUp}
+              className="w-full border border-white/10 py-3 rounded-xl text-sm"
+            >
+              Create Account
+            </button>
+
+          </div>
+        )}
+
+        {/* FORGOT VIEW */}
+        {view === "forgot" && (
+          <div className="space-y-4">
+
+            <h2 className="text-lg font-semibold text-center">Reset Password</h2>
+
+            <input
+              className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-sm"
+              placeholder="Enter email"
+              onChange={(e) => setEmail(e.target.value)}
+            />
+
+            <button
+              onClick={handleResetPassword}
+              className="w-full bg-purple-500 py-3 rounded-xl"
+            >
+              Send Reset Link
+            </button>
+
+            <button
+              onClick={() => setView("auth")}
+              className="w-full flex items-center justify-center gap-2 text-sm text-gray-400"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </button>
+
+          </div>
+        )}
+
+      </div>
     </div>
   )
 }
