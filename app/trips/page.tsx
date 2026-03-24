@@ -11,9 +11,10 @@ const Icon = ({ d, size = 22, stroke = "currentColor", fill = "none" }: any) => 
 const Icons = {
   sparkles: "M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3zM5 17l.75 2.25L8 20l-2.25.75L5 23l-.75-2.25L2 20l2.25-.75L5 17zM19 3l.75 2.25L22 6l-2.25.75L19 9l-.75-2.25L16 6l2.25-.75L19 3z",
   mapPin: "M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z M12 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2",
-  calendar: "M3 4h18v18H3zM16 2v4M8 2v4M3 10h18",
+  calendar: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
   search: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
-  send: "M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"
+  send: "M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z",
+  arrowRight: "M5 12h14m-7-7l7 7-7 7"
 }
 
 export default function TripsPage() {
@@ -37,8 +38,7 @@ export default function TripsPage() {
     if (!user) return
     setCurrentUserId(user.id)
 
-    // 1. Fetch trips + total member count for "Spots" feature
-    // Using a join to count space_members
+    // Fetch trips + member counts
     const { data: spacesData } = await supabase
       .from('spaces')
       .select(`*, space_members(count)`)
@@ -47,7 +47,6 @@ export default function TripsPage() {
     
     if (spacesData) setTrips(spacesData)
 
-    // 2. Fetch my requests
     const { data: requestsData } = await supabase
       .from('space_members')
       .select('space_id')
@@ -64,7 +63,7 @@ export default function TripsPage() {
     const isAlreadyRequested = myRequests.includes(trip.id)
 
     if (isAlreadyRequested) {
-      // 💨 UNSEND LOGIC
+      // UNSEND/UNDO Request
       const { error } = await supabase
         .from('space_members')
         .delete()
@@ -75,14 +74,14 @@ export default function TripsPage() {
         alert("Request retracted! 💨")
       }
     } else {
-      // 🔒 SAFETY CHECKS (Before sending)
+      // 🛡️ SECURITY CHECKS
       const { data: profile } = await supabase.from('profiles').select('gender').eq('id', currentUserId).single()
 
       if (trip.girls_only && profile?.gender !== 'female') {
         return alert("Sorry! This is a Girls-Only trip 🌸. Only girls can join this squad.")
       }
 
-      // 🎒 JOIN LOGIC
+      // SEND Request
       const { error } = await supabase.from('space_members').insert({
         space_id: trip.id,
         user_id: currentUserId,
@@ -149,14 +148,6 @@ export default function TripsPage() {
         ))}
       </div>
 
-      {filteredTrips.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text3)' }}>
-          <div style={{ fontSize: '50px' }}>☁️</div>
-          <h3 style={{ color: 'var(--text2)' }}>No squads found</h3>
-          <button onClick={() => router.push('/create')} className="btn-sm" style={{ marginTop: '20px' }}>Post a Trip +</button>
-        </div>
-      )}
-
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, padding: "0 16px" }}>
         {filteredTrips.map((trip, i) => {
           const hasJoined = myRequests.includes(trip.id)
@@ -175,18 +166,30 @@ export default function TripsPage() {
               </div>
               
               <div className="trip-body">
-                <div className="trip-title">{trip.title}</div>
-                <div className="trip-dest"><Icon d={Icons.mapPin} size={11} /> {trip.destination_city}</div>
+                <div className="trip-title" style={{ fontSize: '15px' }}>{trip.title}</div>
+                <div className="trip-dest" style={{ marginBottom: '8px' }}>
+                  <Icon d={Icons.mapPin} size={11} /> {trip.destination_city}
+                </div>
                 
-                <div className="trip-tags">
-                  {trip.girls_only && <span className="tag" style={{ fontSize: 9, background: 'rgba(240,167,216,0.1)', color: 'var(--pink)' }}>Girls Only 🎀</span>}
-                  <span className="spots-badge" style={{ fontSize: 9, color: spotsTaken >= trip.slots_total ? 'var(--pink)' : 'var(--lavender)', fontWeight: 'bold' }}>
+                <div className="trip-tags" style={{ marginBottom: '10px' }}>
+                  {trip.girls_only && <span className="tag" style={{ fontSize: 8, background: 'rgba(240,167,216,0.1)', color: 'var(--pink)' }}>Girls Only 🎀</span>}
+                  <span className="spots-badge" style={{ fontSize: 8, color: spotsTaken >= trip.slots_total ? 'var(--pink)' : 'var(--lavender)', fontWeight: 'bold' }}>
                     {spotsTaken}/{trip.slots_total} Joined
                   </span>
                 </div>
+
+                {/* ✨ DATES & BUDGET SECTION */}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '10px', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '9px', color: 'var(--text3)', marginBottom: '5px' }}>
+                    <Icon d={Icons.calendar} size={10} />
+                    <span>{trip.start_date}</span>
+                    <Icon d={Icons.arrowRight} size={8} />
+                    <span>{trip.end_date || 'TBA'}</span>
+                  </div>
+                  <div style={{ fontWeight: 800, color: "var(--lavender)", fontSize: '14px' }}>₹{trip.budget}</div>
+                </div>
                 
                 <div style={{ marginTop: "auto" }}>
-                  <div style={{ fontWeight: 700, color: "var(--lavender)", fontSize: 12, marginBottom: 8 }}>₹{trip.budget}</div>
                   <button
                     className="btn-sm"
                     style={{ 
