@@ -2,149 +2,170 @@
 
 import { useState, useEffect, useRef } from "react"
 import { createClient } from "@/lib/supabase"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { ArrowLeft, Send, Loader2 } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
+
+const Icon = ({ d, size = 22 }: any) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
+)
+
+const Icons = {
+  arrowLeft: "M19 12H5M12 19l-7-7 7-7",
+  send: "M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z",
+}
 
 export default function ChatRoom() {
   const [messages, setMessages] = useState<any[]>([])
   const [newMessage, setNewMessage] = useState("")
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [tripName, setTripName] = useState("Squad Chat")
   const [loading, setLoading] = useState(true)
   
-  // Auto-scroll to bottom
   const bottomRef = useRef<HTMLDivElement>(null)
-  
   const params = useParams()
   const spaceId = params.spaceId as string
-  
   const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
-    // 1. Get User & Initial Messages
-    const init = async () => {
+    let channel: any;
+
+    const initChat = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return router.push("/")
       setCurrentUser(user)
 
-      const { data } = await supabase
+      // Get Trip Name
+      const { data: spaceData } = await supabase.from('spaces').select('title').eq('id', spaceId).single()
+      if (spaceData) setTripName(spaceData.title)
+
+      // Get Messages
+      const { data: msgData } = await supabase
         .from('messages')
-        .select(`*, author:profiles(full_name)`) // Join with profile to get names
+        .select(`*, author:profiles(full_name, avatar_url)`)
         .eq('space_id', spaceId)
         .order('created_at', { ascending: true })
 
-      setMessages(data || [])
+      setMessages(msgData || [])
       setLoading(false)
       scrollToBottom()
-    }
-    init()
 
-    // 2. SUBSCRIBE to Realtime Changes (The Magic) ⚡
-    const channel = supabase
-      .channel('realtime_messages')
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'messages',
-        filter: `space_id=eq.${spaceId}` 
-      }, (payload) => {
-        // When a new message comes in, fetch its author name
-        fetchAuthorAndAdd(payload.new)
-      })
-      .subscribe()
+      // Realtime Subscription
+      channel = supabase
+        .channel('realtime_messages')
+        .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'messages',
+          filter: `space_id=eq.${spaceId}` 
+        }, async (payload) => {
+          // Fetch author info for the new incoming message
+          const { data: authorData } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', payload.new.user_id).single()
+          const newMsg = { ...payload.new, author: authorData }
+          
+          setMessages((prev) => [...prev, newMsg])
+          scrollToBottom()
+        })
+        .subscribe()
+    }
+
+    initChat()
 
     return () => {
-      supabase.removeChannel(channel)
+      if (channel) supabase.removeChannel(channel)
     }
   }, [spaceId])
 
-  const fetchAuthorAndAdd = async (msg: any) => {
-    const { data } = await supabase.from('profiles').select('full_name').eq('id', msg.user_id).single()
-    const newMsg = { ...msg, author: data }
-    setMessages((prev) => [...prev, newMsg])
-    scrollToBottom()
-  }
-
   const scrollToBottom = () => {
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 150)
   }
 
   const handleSend = async () => {
-    if (!newMessage.trim()) return
+    if (!newMessage.trim() || !currentUser) return
+    const textToSend = newMessage
+    setNewMessage("") // Clear input instantly for snappy UX
 
     const { error } = await supabase
       .from('messages')
       .insert({
-        content: newMessage,
+        content: textToSend,
         space_id: spaceId,
         user_id: currentUser.id
       })
 
-    if (error) console.error(error)
-    setNewMessage("")
+    if (error) {
+      console.error(error)
+      alert("Failed to send message.")
+    }
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white p-4 shadow-sm flex items-center sticky top-0 z-10">
-        <Button variant="ghost" onClick={() => router.back()} className="p-0 mr-4">
-            <ArrowLeft className="w-6 h-6" />
-        </Button>
-        <div>
-            <h1 className="font-bold text-lg">Squad Chat 💬</h1>
-            <p className="text-xs text-green-600 flex items-center gap-1">
-                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Online
-            </p>
+    <div className="chat-container">
+      {/* Navbar Overlay */}
+      <div className="navbar" style={{ position: "sticky", top: 0, zIndex: 50 }}>
+        <button onClick={() => router.back()} style={{ background: "none", border: "none", color: "var(--text)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon d={Icons.arrowLeft} size={20} />
+        </button>
+        <div style={{ textAlign: "center", position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{tripName}</div>
+          <div style={{ fontSize: 11, color: "var(--pink)", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--pink)", display: "inline-block", animation: "pulse-glow 2s infinite" }}></span>
+            Live
+          </div>
         </div>
+        <div style={{ width: 24 }}></div> {/* Spacer to center title */}
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* Messages Area */}
+      {/* ✨ ADDED: style={{ paddingBottom: "120px" }} to ensure the last message clears the input bar */}
+      <div className="chat-messages" style={{ paddingBottom: "120px" }}>
         {loading ? (
-            <div className="flex justify-center mt-10"><Loader2 className="animate-spin text-gray-400" /></div>
+          <div style={{ textAlign: "center", color: "var(--text3)", marginTop: 40, fontSize: 13 }}>Loading messages...</div>
         ) : messages.length === 0 ? (
-            <p className="text-center text-gray-400 mt-10 text-sm">No messages yet. Say hi! 👋</p>
+          <div style={{ textAlign: "center", color: "var(--text3)", marginTop: 40, fontSize: 13 }}>
+            No messages yet. Say hi! 👋
+          </div>
         ) : (
-            messages.map((msg) => {
-                const isMe = msg.user_id === currentUser?.id
-                // ... inside messages.map((msg) => { ...
-return (
-    <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-        
-        {/* NEW: Name Tag (Always visible now) */}
-        <span className="text-[10px] text-gray-400 mb-1 px-1">
-            {isMe ? "You" : (msg.author?.full_name || "Unknown")}
-        </span>
+          messages.map((msg) => {
+            const isMe = msg.user_id === currentUser?.id
+            return (
+              <div key={msg.id} className={`msg-row ${isMe ? 'me' : ''}`}>
+                
+                {/* Avatar for other people */}
+                {!isMe && (
+                  <div className="avatar" style={{ width: 28, height: 28, fontSize: 12 }}>
+                    {msg.author?.full_name?.[0] || "U"}
+                  </div>
+                )}
 
-        {/* The Bubble */}
-        <div className={`max-w-[75%] rounded-2xl p-3 shadow-sm ${
-            isMe ? 'bg-basko-brand text-white rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'
-        }`}>
-            <p className="text-sm">{msg.content}</p>
-        </div>
-    </div>
-)
-// ...
-            })
+                <div style={{ display: "flex", flexDirection: "column", maxWidth: "100%" }}>
+                  <div className="msg-name">
+                    {isMe ? "You" : (msg.author?.full_name || "Traveler")}
+                  </div>
+                  <div className={`msg-bubble ${isMe ? 'me' : 'them'}`}>
+                    {msg.content}
+                  </div>
+                </div>
+
+              </div>
+            )
+          })
         )}
         <div ref={bottomRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="p-4 bg-white border-t border-gray-100 flex gap-2">
-        <Input 
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Type a message..."
-            className="rounded-full bg-gray-50 border-none h-12"
+      {/* Sticky Input Bar */}
+      <div className="chat-input-bar">
+        <input 
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+          placeholder="say something cute 💜"
+          className="chat-input"
         />
-        <Button onClick={handleSend} size="icon" className="rounded-full h-12 w-12 bg-basko-brand hover:bg-basko-glow">
-            <Send className="w-5 h-5 text-white" />
-        </Button>
+        <button onClick={handleSend} className="send-btn">
+          <Icon d={Icons.send} size={16} />
+        </button>
       </div>
     </div>
   )
