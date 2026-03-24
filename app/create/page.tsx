@@ -31,9 +31,10 @@ export default function CreatePage() {
   // Trip State
   const [title, setTitle] = useState("")
   const [dest, setDest] = useState("")
-  const [dates, setDates] = useState("")
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("") // ✨ Added End Date
   const [budget, setBudget] = useState("")
-  const [spots, setSpots] = useState("5") // Default to 5
+  const [spots, setSpots] = useState("5")
   const [girlsOnly, setGirlsOnly] = useState(false)
 
   useEffect(() => {
@@ -75,7 +76,10 @@ export default function CreatePage() {
   }
 
   const handleCreateTrip = async () => {
-    if (!title || !dest || !budget || !spots) return alert("Please fill in all trip details! 🌍")
+    // ✨ Validation including End Date
+    if (!title || !dest || !budget || !spots || !startDate || !endDate) {
+      return alert("Please fill in all trip details, including dates! 🌍")
+    }
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
     
@@ -83,15 +87,18 @@ export default function CreatePage() {
       host_id: user?.id,
       title: title,
       destination_city: dest,
-      start_date: dates,
+      start_date: startDate,
+      end_date: endDate, // ✨ New field
       budget: parseInt(budget),
-      slots_total: parseInt(spots), // ✨ SAVES TOTAL SPOTS
-      girls_only: girlsOnly, // ✨ SAVES GIRLS ONLY TOGGLE
+      slots_total: parseInt(spots),
+      girls_only: girlsOnly,
       status: 'active'
     })
 
-    if (error) alert(error.message)
-    else {
+    if (error) {
+        alert("Error saving: " + error.message)
+        setLoading(false)
+    } else {
       setLoading(false)
       router.push('/dashboard')
     }
@@ -142,24 +149,35 @@ export default function CreatePage() {
               <input type="text" placeholder="where are we going?" value={dest} onChange={e => setDest(e.target.value)} />
             </div>
 
+            {/* ✨ SIDE BY SIDE DATES */}
             <div style={{ display: "flex", gap: 12 }}>
               <div style={{ flex: 1 }}>
                 <label>Start Date</label>
-                <div className="input-wrap"><div className="input-icon"><Icon d={Icons.calendar} size={16} /></div>
-                  <input type="date" value={dates} onChange={e => setDates(e.target.value)} style={{ paddingLeft: 42 }} />
+                <div className="input-wrap">
+                  <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ paddingLeft: 12, paddingRight: 10 }} />
                 </div>
               </div>
+              <div style={{ flex: 1 }}>
+                <label>End Date</label>
+                <div className="input-wrap">
+                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ paddingLeft: 12, paddingRight: 10 }} />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 12 }}>
               <div style={{ flex: 1 }}>
                 <label>Budget</label>
                 <div className="input-wrap"><div className="input-icon"><b>₹</b></div>
                   <input type="number" placeholder="5000" value={budget} onChange={e => setBudget(e.target.value)} />
                 </div>
               </div>
-            </div>
-
-            <label>Spots available</label>
-            <div className="input-wrap"><div className="input-icon"><Icon d={Icons.user} size={16} /></div>
-              <input type="number" placeholder="How many friends?" value={spots} onChange={e => setSpots(e.target.value)} />
+              <div style={{ flex: 1 }}>
+                <label>Spots</label>
+                <div className="input-wrap"><div className="input-icon"><Icon d={Icons.user} size={16} /></div>
+                  <input type="number" value={spots} onChange={e => setSpots(e.target.value)} />
+                </div>
+              </div>
             </div>
 
             {/* ✨ GIRLS ONLY TOGGLE */}

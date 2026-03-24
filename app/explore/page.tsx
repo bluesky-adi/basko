@@ -24,17 +24,13 @@ export default function ExplorePage() {
   const [posts, setPosts] = useState<any[]>([])
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
-  
-  // Comments State
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null)
   const [postComments, setPostComments] = useState<any[]>([])
   const [newComment, setNewComment] = useState("")
 
   const supabase = createClient()
 
-  useEffect(() => {
-    fetchFeed()
-  }, [])
+  useEffect(() => { fetchFeed() }, [])
 
   const fetchFeed = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -47,13 +43,54 @@ export default function ExplorePage() {
     if (data) setPosts(data)
   }
 
-  // ✨ SECURE JOIN LOGIC
+  // ✨ FIX: Robust Delete Logic
+  const handleDeletePost = async (postId: string) => {
+    if (!window.confirm("Delete this post permanently? 🛑")) return
+    
+    // 1. Tell Supabase to delete it
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', postId)
+      .eq('author_id', currentUserId) // Double check ownership
+
+    if (error) {
+      console.error("Delete error:", error)
+      alert("Database error: " + error.message)
+    } else {
+      // 2. Clear state locally so it disappears immediately
+      setPosts(prev => prev.filter(p => p.id !== postId))
+      setOpenDropdownId(null)
+      alert("Post deleted successfully ✨")
+      
+      // 3. Re-fetch just to be 100% sure we are synced with server
+      await fetchFeed()
+    }
+  }
+
+  const handleReportPost = async (postId: string) => {
+    const reason = window.prompt("Reason for reporting? (e.g. Spam, Offensive)")
+    if (!reason) return
+    
+    if (currentUserId) {
+      const { error } = await supabase.from('reports').insert({ 
+        reporter_id: currentUserId, 
+        post_id: postId, 
+        reason: reason 
+      })
+      if (!error) {
+        alert("Reported! Moderators will review this. 🛡️")
+        setOpenDropdownId(null)
+      }
+    }
+  }
+
   const handleJoinTrip = async (trip: any) => {
     if (!currentUserId) return router.push('/')
     const { data: profile } = await supabase.from('profiles').select('gender').eq('id', currentUserId).single()
 
     if (trip.girls_only && profile?.gender !== 'female') {
-      return alert("Sorry! This is a Girls-Only trip 🌸. Update your gender in Profile settings if needed.")
+      return alert("Sorry! This is a Girls-Only trip 🌸.")
     }
 
     const { error } = await supabase.from('space_members').insert({
@@ -63,47 +100,21 @@ export default function ExplorePage() {
     else alert("Request sent! ✨")
   }
 
-  // ✨ DELETE LOGIC (Ensures it stays deleted)
-  const handleDeletePost = async (postId: string) => {
-    if (!window.confirm("Delete this post permanently? 🛑")) return
-    
-    // 1. Delete from Database
-    const { error } = await supabase.from('posts').delete().eq('id', postId)
-    
-    if (error) {
-      alert("Database error: " + error.message)
-    } else {
-      // 2. Remove from screen only after DB confirms deletion
-      setPosts(posts.filter(p => p.id !== postId))
-      setOpenDropdownId(null)
-      alert("Post removed! ✨")
-    }
-  }
-
-  // ✨ REPORT LOGIC (Sends reason to Supabase)
-  const handleReportPost = async (postId: string) => {
-    const reason = window.prompt("Why are you reporting this? (Spam, Inappropriate, etc.)")
-    if (!reason) return
-
-    const { error } = await supabase.from('reports').insert({
-      reporter_id: currentUserId,
-      post_id: postId,
-      reason: reason
-    })
-
-    if (error) alert("Error submitting report.")
-    else {
-      alert("Reported! Moderators will review this within 24h. 🛡️")
-      setOpenDropdownId(null)
-    }
-  }
-
   const toggleLike = async (postId: string, currentLikes: any[]) => {
     if (!currentUserId) return
     const hasLiked = currentLikes.some((l: any) => l.user_id === currentUserId)
-    setPosts(posts.map(p => p.id === postId ? { ...p, likes: hasLiked ? p.likes.filter((l:any) => l.user_id !== currentUserId) : [...p.likes, { user_id: currentUserId }] } : p))
-    if (hasLiked) { await supabase.from('post_likes').delete().match({ user_id: currentUserId, post_id: postId }) } 
-    else { await supabase.from('post_likes').insert({ user_id: currentUserId, post_id: postId }) }
+    
+    // Optimistic UI update
+    setPosts(posts.map(p => p.id === postId ? { 
+      ...p, 
+      likes: hasLiked ? p.likes.filter((l:any) => l.user_id !== currentUserId) : [...p.likes, { user_id: currentUserId }] 
+    } : p))
+
+    if (hasLiked) { 
+        await supabase.from('post_likes').delete().match({ user_id: currentUserId, post_id: postId }) 
+    } else { 
+        await supabase.from('post_likes').insert({ user_id: currentUserId, post_id: postId }) 
+    }
   }
 
   const handleOpenComments = async (postId: string) => {
@@ -115,10 +126,10 @@ export default function ExplorePage() {
 
   const handleSendComment = async () => {
     if (!newComment.trim() || !activeCommentPostId || !currentUserId) return
-    const commentText = newComment
+    const content = newComment
     setNewComment("")
-    await supabase.from('comments').insert({ post_id: activeCommentPostId, user_id: currentUserId, content: commentText })
-    handleOpenComments(activeCommentPostId) // Refresh list
+    await supabase.from('comments').insert({ post_id: activeCommentPostId, user_id: currentUserId, content })
+    handleOpenComments(activeCommentPostId)
   }
 
   const handleShare = async (postId: string) => {
@@ -157,7 +168,6 @@ export default function ExplorePage() {
                   </div>
                 </div>
                 
-                {/* 3 DOT MENU BUTTON */}
                 <button 
                   onClick={(e) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === post.id ? null : post.id); }}
                   style={{ background: "none", border: "none", color: "var(--text3)", cursor: "pointer", padding: "4px" }}
@@ -166,7 +176,6 @@ export default function ExplorePage() {
                 </button>
               </div>
 
-              {/* ✨ DYNAMIC CONTEXT MENU (Delete vs Report) */}
               {openDropdownId === post.id && (
                 <div className="dropdown-menu">
                   {isMyPost ? (
@@ -211,7 +220,6 @@ export default function ExplorePage() {
                 <Icon d={Icons.x} size={20} />
               </button>
             </div>
-            
             <div className="comment-list">
               {postComments.length === 0 ? (
                 <div style={{ textAlign: "center", color: "var(--text3)", marginTop: 20, fontSize: 13 }}>Be the first to reply ✨</div>
@@ -227,7 +235,6 @@ export default function ExplorePage() {
                 ))
               )}
             </div>
-
             <div style={{ padding: "16px", borderTop: "1px solid var(--border)", background: "var(--bg)" }}>
               <div style={{ display: "flex", gap: "10px" }}>
                 <input value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendComment()} placeholder="Reply..." className="chat-input" style={{ flex: 1 }} />
