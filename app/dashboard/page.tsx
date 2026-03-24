@@ -3,17 +3,7 @@
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase"
 import { useRouter } from "next/navigation"
-
-const Icon = ({ d, size = 22, stroke = "currentColor", fill = "none" }: any) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
-)
-
-const Icons = {
-  check: "M20 6L9 17l-5-5",
-  x: "M18 6L6 18M6 6l12 12",
-  logOut: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
-  settings: "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"
-}
+import { Settings, LogOut, Trash2, Share2, MessageSquare, Check, X, User } from "lucide-react"
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null)
@@ -21,6 +11,7 @@ export default function DashboardPage() {
   const [joinedTrips, setJoinedTrips] = useState<any[]>([])
   const [isEditing, setIsEditing] = useState(false)
   
+  // Edit States
   const [editName, setEditName] = useState("")
   const [editCollege, setEditCollege] = useState("")
   const [editBio, setEditBio] = useState("")
@@ -63,17 +54,42 @@ export default function DashboardPage() {
     if (joined) setJoinedTrips(joined.filter(item => item.space !== null))
   }
 
+  // ✨ THE BULLETPROOF UPDATE FUNCTION
   const handleUpdateProfile = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('profiles').update({
-      full_name: editName,
-      college_name: editCollege,
-      bio: editBio,
-      gender: editGender
-    }).eq('id', user?.id)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-    setIsEditing(false)
-    fetchDashboardData()
+      // 🛡️ Security Check: Gender limit
+      if (editGender !== profile?.gender) {
+        const lastUpdate = profile?.gender_updated_at ? new Date(profile.gender_updated_at) : new Date(0)
+        const daysSince = (new Date().getTime() - lastUpdate.getTime()) / (1000 * 3600 * 24)
+        if (daysSince < 15) {
+          alert("Safety Lock: Gender can only be changed twice a month. 🛡️")
+          return
+        }
+      }
+
+      // 💾 The Update
+      const { error } = await supabase.from('profiles').update({
+        full_name: editName,
+        college_name: editCollege,
+        bio: editBio,
+        gender: editGender, 
+        gender_updated_at: editGender !== profile?.gender ? new Date().toISOString() : profile?.gender_updated_at
+      }).eq('id', user.id)
+
+      if (error) throw error
+
+      // ✅ SUCCESS: Close and Refresh
+      setIsEditing(false)
+      await fetchDashboardData()
+      alert("Profile Updated! ✨")
+
+    } catch (err: any) {
+      console.error(err)
+      alert("Save Failed: " + err.message)
+    }
   }
 
   const handleRequest = async (memberId: string, action: 'approved' | 'rejected') => {
@@ -81,70 +97,118 @@ export default function DashboardPage() {
     fetchDashboardData() 
   }
 
-  const handleLogOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/')
+  const handleShareTrip = (tripId: string) => {
+    const url = `${window.location.origin}/trips/${tripId}`
+    navigator.clipboard.writeText(url)
+    alert("Trip link copied! 🚀")
   }
 
   return (
     <div className="page">
-      <div className="navbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="navbar" style={{ display: "flex", justifyContent: "space-between", padding: "16px 20px" }}>
         <span className="logo">basko</span>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <button onClick={() => setIsEditing(true)} style={{ background: "none", border: "none", color: "var(--text2)", cursor: "pointer" }}>
-            <Icon d={Icons.settings} size={20} />
-          </button>
-          <button onClick={handleLogOut} style={{ background: "rgba(255,100,100,0.1)", border: "1px solid rgba(255,100,100,0.2)", color: "#ff8080", padding: "6px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: "600" }}>
-            Log Out
-          </button>
+        <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
+          <Settings size={20} onClick={() => setIsEditing(true)} style={{ cursor: "pointer", color: "var(--text2)" }} />
+          <LogOut size={20} onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{ cursor: "pointer", color: "#ff8080" }} />
         </div>
       </div>
 
       <div className="profile-header fade-up">
-        <div className="avatar avatar-lg" style={{ boxShadow: "0 0 30px var(--glow)" }}>{profile?.full_name?.[0] || "B"}</div>
+        <div className="avatar avatar-lg" style={{ boxShadow: "0 0 30px var(--glow)", margin: '0 auto' }}>{profile?.full_name?.[0] || "B"}</div>
         <div style={{ marginTop: 12, fontSize: 20, fontWeight: 700 }}>{profile?.full_name || "Traveler"}</div>
         <div style={{ fontSize: 13, color: "var(--text3)", marginTop: 4 }}>
           {profile?.college_name || "College not set"} • <span style={{ textTransform: 'capitalize' }}>{profile?.gender || "Gender unset"}</span>
         </div>
+        <p className="bio-text" style={{ marginTop: '12px', fontStyle: 'italic', fontSize: '13px', color: 'var(--text2)', maxWidth: '280px', margin: '12px auto' }}>
+          {profile?.bio || "No bio yet. Tap settings! ✍️"}
+        </p>
       </div>
 
       <div style={{ padding: "0 16px" }}>
-        <div className="dash-section fade-up-1">
+        {/* HOSTED TRIPS */}
+        <div className="dash-section">
           <div className="dash-section-title">your trips 🗺</div>
           {hostedTrips.map((trip) => (
-            <div key={trip.id} className="glass dash-trip-row" style={{ borderRadius: "12px", flexDirection: "column", alignItems: "stretch", gap: "12px", padding: '16px', marginBottom: '12px' }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                   <div style={{ fontWeight: 600 }}>{trip.title}</div>
-                   <div style={{ fontSize: '12px', color: 'var(--text3)' }}>{trip.start_date} · ₹{trip.budget}</div>
+            <div key={trip.id} className="glass" style={{ padding: '16px', marginBottom: '12px', borderRadius: '16px' }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: '12px' }}>
+                <div style={{ fontWeight: 600 }}>{trip.title}</div>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <Share2 size={18} onClick={() => handleShareTrip(trip.id)} style={{ color: 'var(--lavender)', cursor: 'pointer' }} />
+                  <Trash2 size={18} onClick={() => { if(window.confirm("Delete?")) supabase.from('spaces').delete().eq('id', trip.id).then(fetchDashboardData) }} style={{ color: '#ff8080', cursor: 'pointer' }} />
                 </div>
-                <span className="badge badge-approved">Active</span>
               </div>
-              <button className="btn-sm" style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'var(--surface2)', border: '1px solid var(--border)', color: 'white' }} onClick={() => router.push(`/chat/${trip.id}`)}>
-                Open Group Chat 💬
+              <button className="btn-sm" style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)' }} onClick={() => router.push(`/chat/${trip.id}`)}>
+                <MessageSquare size={14} style={{ marginRight: '8px' }} /> Open Group Chat
               </button>
+            </div>
+          ))}
+        </div>
+
+        {/* JOIN REQUESTS */}
+        <div className="dash-section">
+          <div className="dash-section-title">join requests 🎀</div>
+          {hostedTrips.flatMap(t => t.requests).filter(r => r.status === 'pending').map(req => (
+            <div key={req.id} className="glass request-row" style={{ padding: '12px', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '13px' }}><b>{req.user?.full_name}</b> wants to join</div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => handleRequest(req.id, 'approved')} style={{ background: '#4ade8020', color: '#4ade80', border: 'none', padding: '5px', borderRadius: '5px' }}><Check size={16}/></button>
+                <button onClick={() => handleRequest(req.id, 'rejected')} style={{ background: '#f8717120', color: '#f87171', border: 'none', padding: '5px', borderRadius: '5px' }}><X size={16}/></button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* JOINED TRIPS */}
+        <div className="dash-section">
+          <div className="dash-section-title">trips you joined 💫</div>
+          {joinedTrips.map((item, i) => (
+            <div key={i} className="glass" style={{ padding: '16px', marginBottom: '12px' }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
+                <div style={{ fontSize: '14px', fontWeight: '600' }}>{item.space?.title}</div>
+                <span className={`badge badge-${item.status}`}>{item.status}</span>
+              </div>
+              {item.status === 'approved' && (
+                <button className="btn-sm" style={{ width: '100%' }} onClick={() => router.push(`/chat/${item.space?.id}`)}>Enter Chat 💬</button>
+              )}
             </div>
           ))}
         </div>
       </div>
 
+      {/* EDIT MODAL */}
       {isEditing && (
-        <div className="modal-overlay" onClick={() => setIsEditing(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="modal-content glass" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '400px', padding: '24px', borderRadius: '24px', border: '1px solid var(--border)' }}>
-            <h2 style={{ marginBottom: '20px', fontSize: '20px' }}>Edit Profile ✨</h2>
-            <div className="input-group" style={{ marginBottom: '16px' }}>
-              <label style={{ fontSize: '12px', color: 'var(--text3)' }}>Full Name</label>
-              <input value={editName} onChange={e => setEditName(e.target.value)} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', padding: '10px', borderRadius: '8px', color: 'white' }} />
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div className="modal-content glass" style={{ width: '100%', maxWidth: '400px', maxHeight: '85vh', padding: '24px', borderRadius: '24px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '20px', margin: 0 }}>Edit Profile ✨</h2>
+              <button onClick={() => setIsEditing(false)} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer' }}>
+                <X size={24} />
+              </button>
             </div>
-            <div className="input-group" style={{ marginBottom: '16px' }}>
-              <label style={{ fontSize: '12px', color: 'var(--text3)' }}>Gender</label>
-              <select value={editGender} onChange={e => setEditGender(e.target.value)} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', padding: '10px', borderRadius: '8px', color: 'white' }}>
-                <option value="">Select gender</option>
-                <option value="female">Female 🌸</option>
+
+            <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', marginBottom: '20px' }}>
+              <label style={{ fontSize: '11px', color: 'var(--text3)', display: 'block', marginBottom: '8px' }}>NAME</label>
+              <input value={editName} onChange={e => setEditName(e.target.value)} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', padding: '12px', borderRadius: '12px', color: 'white', marginBottom: '15px' }} />
+              
+              <label style={{ fontSize: '11px', color: 'var(--text3)', display: 'block', marginBottom: '8px' }}>COLLEGE</label>
+              <input value={editCollege} onChange={e => setEditCollege(e.target.value)} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', padding: '12px', borderRadius: '12px', color: 'white', marginBottom: '15px' }} />
+
+              <label style={{ fontSize: '11px', color: 'var(--text3)', display: 'block', marginBottom: '8px' }}>BIO</label>
+              <textarea value={editBio} onChange={e => setEditBio(e.target.value)} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', padding: '12px', borderRadius: '12px', color: 'white', height: '80px', marginBottom: '15px', resize: 'none' }} />
+
+              <label style={{ fontSize: '11px', color: 'var(--text3)', display: 'block', marginBottom: '8px' }}>GENDER</label>
+              <select value={editGender} onChange={e => setEditGender(e.target.value)} style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', padding: '12px', borderRadius: '12px', color: 'white', marginBottom: '5px' }}>
                 <option value="male">Male 🚀</option>
+                <option value="female">Female 🌸</option>
+                <option value="other">Other 🌈</option>
               </select>
             </div>
-            <button onClick={handleUpdateProfile} className="btn-primary" style={{ width: '100%', padding: '12px', borderRadius: '12px' }}>Save Changes</button>
+
+            <div style={{ display: 'flex', gap: '10px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+              <button onClick={() => setIsEditing(false)} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: 'none', border: '1px solid var(--border)', color: 'white', fontSize: '13px' }}>Cancel</button>
+              <button onClick={handleUpdateProfile} className="btn-primary" style={{ flex: 2, padding: '12px', borderRadius: '12px', fontWeight: 'bold', fontSize: '13px' }}>Save & Return ✨</button>
+            </div>
           </div>
         </div>
       )}

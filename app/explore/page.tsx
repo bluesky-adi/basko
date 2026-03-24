@@ -47,70 +47,54 @@ export default function ExplorePage() {
     if (data) setPosts(data)
   }
 
-  // ✨ SECURE JOIN LOGIC (In case you have trip cards here)
+  // ✨ SECURE JOIN LOGIC
   const handleJoinTrip = async (trip: any) => {
     if (!currentUserId) return router.push('/')
-
-    // Fetch latest profile to check gender
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('gender')
-      .eq('id', currentUserId)
-      .single()
+    const { data: profile } = await supabase.from('profiles').select('gender').eq('id', currentUserId).single()
 
     if (trip.girls_only && profile?.gender !== 'female') {
-      return alert("Sorry! This is a Girls-Only trip 🌸. Please update your gender in Dashboard settings if this is an error.")
+      return alert("Sorry! This is a Girls-Only trip 🌸. Update your gender in Profile settings if needed.")
     }
 
     const { error } = await supabase.from('space_members').insert({
-      space_id: trip.id,
-      user_id: currentUserId,
-      status: 'pending'
+      space_id: trip.id, user_id: currentUserId, status: 'pending'
     })
-
     if (error) alert("Error sending request.")
-    else alert("Request sent! Check Dashboard for updates ✨")
+    else alert("Request sent! ✨")
   }
 
-  const handleOpenComments = async (postId: string) => {
-    setActiveCommentPostId(postId)
-    setPostComments([]) 
+  // ✨ DELETE LOGIC (Ensures it stays deleted)
+  const handleDeletePost = async (postId: string) => {
+    if (!window.confirm("Delete this post permanently? 🛑")) return
     
-    const { data } = await supabase
-      .from('comments')
-      .select(`*, author:profiles(full_name, avatar_url)`)
-      .eq('post_id', postId)
-      .order('created_at', { ascending: true })
-    if (data) setPostComments(data)
+    // 1. Delete from Database
+    const { error } = await supabase.from('posts').delete().eq('id', postId)
+    
+    if (error) {
+      alert("Database error: " + error.message)
+    } else {
+      // 2. Remove from screen only after DB confirms deletion
+      setPosts(posts.filter(p => p.id !== postId))
+      setOpenDropdownId(null)
+      alert("Post removed! ✨")
+    }
   }
 
-  const handleSendComment = async () => {
-    if (!newComment.trim() || !activeCommentPostId || !currentUserId) return
-    const commentText = newComment
-    setNewComment("")
+  // ✨ REPORT LOGIC (Sends reason to Supabase)
+  const handleReportPost = async (postId: string) => {
+    const reason = window.prompt("Why are you reporting this? (Spam, Inappropriate, etc.)")
+    if (!reason) return
 
-    const { data: userData } = await supabase.from('profiles').select('full_name').eq('id', currentUserId).single()
-    
-    const fakeComment = { id: Date.now(), content: commentText, author: { full_name: userData?.full_name || "You" } }
-    setPostComments((prev) => [...prev, fakeComment])
-
-    await supabase.from('comments').insert({
-      post_id: activeCommentPostId,
-      user_id: currentUserId,
-      content: commentText
+    const { error } = await supabase.from('reports').insert({
+      reporter_id: currentUserId,
+      post_id: postId,
+      reason: reason
     })
 
-    fetchFeed() 
-  }
-
-  const handleShare = async (postId: string) => {
-    const shareUrl = `${window.location.origin}/explore?post=${postId}`
-    if (navigator.share) {
-      try { await navigator.share({ title: 'Basko Trip', text: 'Check out this post on Basko! ✨', url: shareUrl }) } 
-      catch (err) { console.log("Share cancelled") }
-    } else {
-      navigator.clipboard.writeText(shareUrl)
-      alert("Link copied to clipboard! 📋")
+    if (error) alert("Error submitting report.")
+    else {
+      alert("Reported! Moderators will review this within 24h. 🛡️")
+      setOpenDropdownId(null)
     }
   }
 
@@ -122,19 +106,25 @@ export default function ExplorePage() {
     else { await supabase.from('post_likes').insert({ user_id: currentUserId, post_id: postId }) }
   }
 
-  const handleDeletePost = async (postId: string) => {
-    if (!window.confirm("Delete this post?")) return
-    setPosts(posts.filter(p => p.id !== postId))
-    setOpenDropdownId(null)
-    await supabase.from('posts').delete().eq('id', postId)
+  const handleOpenComments = async (postId: string) => {
+    setActiveCommentPostId(postId)
+    setPostComments([]) 
+    const { data } = await supabase.from('comments').select(`*, author:profiles(full_name, avatar_url)`).eq('post_id', postId).order('created_at', { ascending: true })
+    if (data) setPostComments(data)
   }
 
-  const handleReportPost = async (postId: string) => {
-    alert("Post reported to moderators. Thank you for keeping Basko safe! 🛡️")
-    setOpenDropdownId(null)
-    if (currentUserId) {
-      await supabase.from('reports').insert({ reporter_id: currentUserId, post_id: postId, reason: "Inappropriate content" })
-    }
+  const handleSendComment = async () => {
+    if (!newComment.trim() || !activeCommentPostId || !currentUserId) return
+    const commentText = newComment
+    setNewComment("")
+    await supabase.from('comments').insert({ post_id: activeCommentPostId, user_id: currentUserId, content: commentText })
+    handleOpenComments(activeCommentPostId) // Refresh list
+  }
+
+  const handleShare = async (postId: string) => {
+    const shareUrl = `${window.location.origin}/explore?post=${postId}`
+    if (navigator.share) { try { await navigator.share({ title: 'Basko', url: shareUrl }) } catch (err) {} } 
+    else { navigator.clipboard.writeText(shareUrl); alert("Link copied! 📋") }
   }
 
   return (
@@ -154,23 +144,20 @@ export default function ExplorePage() {
       <div onClick={() => setOpenDropdownId(null)}>
         {posts.map((post, i) => {
           const isLiked = post.likes?.some((l: any) => l.user_id === currentUserId);
-          const likeCount = post.likes?.length || 0;
-          const commentCount = post.comments?.length || 0;
           const isMyPost = post.author_id === currentUserId;
 
           return (
             <div key={post.id} className="glass post-card" style={{ animationDelay: `${i * 0.08}s`, position: "relative" }}>
               <div className="post-header">
-                <div 
-                  style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}
-                  onClick={() => router.push(`/profile/${post.author_id}`)}
-                >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }} onClick={() => router.push(`/profile/${post.author_id}`)}>
                   <div className="avatar">{post.author?.full_name?.[0] || "🌸"}</div>
                   <div className="post-meta">
                     <div className="post-name">{post.author?.full_name || "Traveler"}</div>
                     <div className="post-time">Recently</div>
                   </div>
                 </div>
+                
+                {/* 3 DOT MENU BUTTON */}
                 <button 
                   onClick={(e) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === post.id ? null : post.id); }}
                   style={{ background: "none", border: "none", color: "var(--text3)", cursor: "pointer", padding: "4px" }}
@@ -179,6 +166,7 @@ export default function ExplorePage() {
                 </button>
               </div>
 
+              {/* ✨ DYNAMIC CONTEXT MENU (Delete vs Report) */}
               {openDropdownId === post.id && (
                 <div className="dropdown-menu">
                   {isMyPost ? (
@@ -187,7 +175,7 @@ export default function ExplorePage() {
                     </button>
                   ) : (
                     <button className="dropdown-item" onClick={() => handleReportPost(post.id)}>
-                      <Icon d={Icons.flag} size={16} /> Report
+                      <Icon d={Icons.flag} size={16} /> Report Content
                     </button>
                   )}
                 </div>
@@ -199,10 +187,10 @@ export default function ExplorePage() {
               <div className="post-actions">
                 <button className={`action-btn ${isLiked ? "liked" : ""}`} onClick={() => toggleLike(post.id, post.likes || [])}>
                   <Icon d={Icons.heart} size={16} fill={isLiked ? "currentColor" : "none"} stroke={isLiked ? "none" : "currentColor"} />
-                  {likeCount}
+                  {post.likes?.length || 0}
                 </button>
                 <button className="action-btn" onClick={() => handleOpenComments(post.id)}>
-                  <Icon d={Icons.messageCircle} size={16} /> {commentCount}
+                  <Icon d={Icons.messageCircle} size={16} /> {post.comments?.length || 0}
                 </button>
                 <button className="action-btn" style={{ marginLeft: "auto" }} onClick={() => handleShare(post.id)}>
                   <Icon d={Icons.send} size={16} />
@@ -213,26 +201,26 @@ export default function ExplorePage() {
         })}
       </div>
 
+      {/* COMMENT MODAL */}
       {activeCommentPostId && (
-        <div className="modal-overlay" onClick={() => setActiveCommentPostId(null)} style={{ position: "fixed", inset: 0, zIndex: 99999, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(0,0,0,0.7)" }}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "480px", height: "85vh", background: "var(--bg)", borderTopLeftRadius: "24px", borderTopRightRadius: "24px", display: "flex", flexDirection: "column", paddingBottom: "100px" }}>
-            
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-              <span style={{ fontSize: 16, fontWeight: 700, color: "var(--text)" }}>Comments 💬</span>
+        <div className="modal-overlay" onClick={() => setActiveCommentPostId(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">Comments 💬</span>
               <button onClick={() => setActiveCommentPostId(null)} style={{ background: "none", border: "none", color: "var(--text3)", cursor: "pointer" }}>
                 <Icon d={Icons.x} size={20} />
               </button>
             </div>
             
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
+            <div className="comment-list">
               {postComments.length === 0 ? (
                 <div style={{ textAlign: "center", color: "var(--text3)", marginTop: 20, fontSize: 13 }}>Be the first to reply ✨</div>
               ) : (
                 postComments.map((c, i) => (
-                  <div key={i} className="comment-row" style={{ animationDelay: `${i * 0.05}s` }}>
-                    <div className="avatar avatar-sm" style={{ width: 28, height: 28, fontSize: 12 }}>{c.author?.full_name?.[0] || "U"}</div>
+                  <div key={i} className="comment-row">
+                    <div className="avatar avatar-sm">{c.author?.full_name?.[0] || "U"}</div>
                     <div className="comment-bubble">
-                      <div className="comment-name">{c.author?.full_name || "Traveler"}</div>
+                      <div className="comment-name">{c.author?.full_name}</div>
                       <div className="comment-text">{c.content}</div>
                     </div>
                   </div>
@@ -240,19 +228,10 @@ export default function ExplorePage() {
               )}
             </div>
 
-            <div style={{ padding: "16px", borderTop: "1px solid var(--border)", background: "var(--surface2)", flexShrink: 0 }}>
+            <div style={{ padding: "16px", borderTop: "1px solid var(--border)", background: "var(--bg)" }}>
               <div style={{ display: "flex", gap: "10px" }}>
-                <input 
-                  value={newComment} 
-                  onChange={(e) => setNewComment(e.target.value)} 
-                  onKeyDown={(e) => e.key === 'Enter' && handleSendComment()}
-                  placeholder="leave a reply..." 
-                  style={{ flex: 1, padding: "12px 16px", borderRadius: "99px", background: "var(--bg)", border: "1px solid var(--border)", color: "white", outline: "none", fontSize: "14px" }}
-                />
-                <button 
-                  onClick={handleSendComment} 
-                  style={{ width: "44px", height: "44px", borderRadius: "50%", background: "linear-gradient(135deg, var(--violet), #c46fff)", color: "white", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
-                >
+                <input value={newComment} onChange={(e) => setNewComment(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendComment()} placeholder="Reply..." className="chat-input" style={{ flex: 1 }} />
+                <button onClick={handleSendComment} className="send-btn">
                   <Icon d={Icons.send} size={16} />
                 </button>
               </div>

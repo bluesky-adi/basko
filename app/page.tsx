@@ -8,12 +8,12 @@ export default function Home() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+  const [tosAgreed, setTosAgreed] = useState(false) // State for the checkbox
   const [view, setView] = useState<"login" | "signup" | "forgot">("login")
 
   const router = useRouter()
   const supabase = createClient()
 
-  // Simplified Check: Only redirect if a session is explicitly found
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) router.push("/explore")
@@ -22,6 +22,12 @@ export default function Home() {
 
   const handleAuth = async () => {
     if (!email || !password) return alert("Please fill in all fields")
+    
+    // Only enforce TOS check on Signup
+    if (view === "signup" && !tosAgreed) {
+      return alert("You must agree to the Terms of Service to join Basko! ⚖️")
+    }
+
     setLoading(true)
     
     if (view === "login") {
@@ -73,13 +79,28 @@ export default function Home() {
             <input type="email" placeholder="student@college.edu" onChange={(e) => setEmail(e.target.value)} />
           </div>
 
-          <div className="input-group" style={{ marginBottom: '24px' }}>
+          <div className="input-group" style={{ marginBottom: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <label>Password</label>
               {view === "login" && <span className="forgot-link" onClick={() => setView("forgot")}>Forgot?</span>}
             </div>
             <input type="password" placeholder="••••••••" onChange={(e) => setPassword(e.target.value)} />
           </div>
+
+          {/* ✨ TERMS OF SERVICE CHECKBOX (Only for Sign Up) */}
+          {view === "signup" && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '20px' }}>
+                <input 
+                  type="checkbox" 
+                  id="tos" 
+                  checked={tosAgreed} 
+                  onChange={(e) => setTosAgreed(e.target.checked)} 
+                />
+                <label htmlFor="tos" style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'none', margin: 0, cursor: 'pointer' }}>
+                    I agree to the Terms of Service & promise not to post illegal/hateful content. ⚖️
+                </label>
+            </div>
+          )}
 
           <button onClick={handleAuth} disabled={loading} className="btn-primary" style={{ width: '100%' }}>
             {loading ? "Please wait..." : view === "login" ? "Login →" : "Create Account ✨"}
