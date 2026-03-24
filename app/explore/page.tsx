@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
 
 const Icon = ({ d, size = 22, stroke = "currentColor", fill = "none" }: any) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
@@ -19,6 +20,7 @@ const Icons = {
 }
 
 export default function ExplorePage() {
+  const router = useRouter()
   const [posts, setPosts] = useState<any[]>([])
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null)
@@ -45,7 +47,31 @@ export default function ExplorePage() {
     if (data) setPosts(data)
   }
 
-  // MODAL & COMMENT LOGIC
+  // ✨ SECURE JOIN LOGIC (In case you have trip cards here)
+  const handleJoinTrip = async (trip: any) => {
+    if (!currentUserId) return router.push('/')
+
+    // Fetch latest profile to check gender
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('gender')
+      .eq('id', currentUserId)
+      .single()
+
+    if (trip.girls_only && profile?.gender !== 'female') {
+      return alert("Sorry! This is a Girls-Only trip 🌸. Please update your gender in Dashboard settings if this is an error.")
+    }
+
+    const { error } = await supabase.from('space_members').insert({
+      space_id: trip.id,
+      user_id: currentUserId,
+      status: 'pending'
+    })
+
+    if (error) alert("Error sending request.")
+    else alert("Request sent! Check Dashboard for updates ✨")
+  }
+
   const handleOpenComments = async (postId: string) => {
     setActiveCommentPostId(postId)
     setPostComments([]) 
@@ -77,7 +103,6 @@ export default function ExplorePage() {
     fetchFeed() 
   }
 
-  // SHARE BUTTON LOGIC
   const handleShare = async (postId: string) => {
     const shareUrl = `${window.location.origin}/explore?post=${postId}`
     if (navigator.share) {
@@ -89,7 +114,6 @@ export default function ExplorePage() {
     }
   }
 
-  // Delete/Like/Report Logic
   const toggleLike = async (postId: string, currentLikes: any[]) => {
     if (!currentUserId) return
     const hasLiked = currentLikes.some((l: any) => l.user_id === currentUserId)
@@ -137,10 +161,15 @@ export default function ExplorePage() {
           return (
             <div key={post.id} className="glass post-card" style={{ animationDelay: `${i * 0.08}s`, position: "relative" }}>
               <div className="post-header">
-                <div className="avatar">{post.author?.full_name?.[0] || "🌸"}</div>
-                <div className="post-meta">
-                  <div className="post-name">{post.author?.full_name || "Traveler"}</div>
-                  <div className="post-time">Recently</div>
+                <div 
+                  style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}
+                  onClick={() => router.push(`/profile/${post.author_id}`)}
+                >
+                  <div className="avatar">{post.author?.full_name?.[0] || "🌸"}</div>
+                  <div className="post-meta">
+                    <div className="post-name">{post.author?.full_name || "Traveler"}</div>
+                    <div className="post-time">Recently</div>
+                  </div>
                 </div>
                 <button 
                   onClick={(e) => { e.stopPropagation(); setOpenDropdownId(openDropdownId === post.id ? null : post.id); }}
@@ -184,7 +213,6 @@ export default function ExplorePage() {
         })}
       </div>
 
-      {/* ✨ BULLETPROOF COMMENT MODAL */}
       {activeCommentPostId && (
         <div className="modal-overlay" onClick={() => setActiveCommentPostId(null)} style={{ position: "fixed", inset: 0, zIndex: 99999, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(0,0,0,0.7)" }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "480px", height: "85vh", background: "var(--bg)", borderTopLeftRadius: "24px", borderTopRightRadius: "24px", display: "flex", flexDirection: "column", paddingBottom: "100px" }}>
@@ -229,11 +257,9 @@ export default function ExplorePage() {
                 </button>
               </div>
             </div>
-
           </div>
         </div>
       )}
-      
     </div>
   )
 }

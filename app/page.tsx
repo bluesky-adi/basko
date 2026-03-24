@@ -2,172 +2,101 @@
 
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase"
-import { Loader2, Lock, Mail, ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 export default function Home() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [view, setView] = useState<"auth" | "forgot">("auth")
+  const [view, setView] = useState<"login" | "signup" | "forgot">("login")
 
   const router = useRouter()
   const supabase = createClient()
 
+  // Simplified Check: Only redirect if a session is explicitly found
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) router.push("/explore")
-    }
-    checkUser()
-  }, [router])
-
-  const handleLogin = async () => {
-    setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) alert(error.message)
-    else router.push("/explore")
-    setLoading(false)
-  }
-
-  const handleSignUp = async () => {
-    setLoading(true)
-    const { error } = await supabase.auth.signUp({ email, password })
-    if (error) alert(error.message)
-    else alert("Check your email to confirm signup!")
-    setLoading(false)
-  }
-
-  const handleResetPassword = async () => {
-    if (!email) return alert("Enter email")
-
-    setLoading(true)
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'http://localhost:3000/auth/callback?next=/update-password',
     })
+  }, [router, supabase.auth])
 
-    if (error) alert(error.message)
-    else {
-      alert("Check your email!")
-      setView("auth")
+  const handleAuth = async () => {
+    if (!email || !password) return alert("Please fill in all fields")
+    setLoading(true)
+    
+    if (view === "login") {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) alert(error.message)
+      else router.push("/explore")
+    } else {
+      const { error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` }
+      })
+      if (error) alert(error.message)
+      else alert("Check your email for a confirmation link! 📧")
     }
-
     setLoading(false)
+  }
+
+  const handleGoogleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { 
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
+    if (error) alert("Google Login Error: " + error.message)
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 relative">
-
-      {/* 🌌 BACKGROUND GLOW */}
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_#1a1a2e,_#0f111a)]" />
-      <div className="absolute top-[-120px] left-1/2 -translate-x-1/2 w-[400px] h-[400px] bg-purple-500/20 blur-3xl rounded-full -z-10" />
-
-      {/* CARD */}
-      <div className="
-        w-full max-w-md
-        bg-white/5
-        backdrop-blur-xl
-        border border-white/10
-        rounded-2xl
-        p-6
-        shadow-xl
-      ">
-
-        {/* TITLE */}
-        <div className="text-center mb-6">
-          <h1 className="text-4xl font-semibold tracking-tight">
-            Basko<span className="text-purple-400">.</span>
-          </h1>
-          <p className="text-sm text-gray-400 mt-2">
-            The Student Travel Community
+    <div className="auth-page" style={{ height: '100vh', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="auth-card fade-up">
+        <div className="auth-header">
+          <h1 className="logo" style={{ fontSize: '42px', marginBottom: '8px' }}>Basko<span>.</span></h1>
+          <p style={{ fontSize: '14px', color: 'var(--text3)' }}>
+            {view === "login" ? "Welcome back, traveler ✨" : "Join the student community 🌍"}
           </p>
         </div>
 
-        {/* AUTH VIEW */}
-        {view === "auth" && (
-          <div className="space-y-4">
+        <div className="auth-form">
+          <button onClick={handleGoogleLogin} className="google-btn">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" alt="" />
+            Continue with Google
+          </button>
 
-            {/* EMAIL */}
-            <div>
-              <p className="text-sm mb-1">Email</p>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                <input
-                  className="w-full bg-white/10 border border-white/10 rounded-xl pl-9 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400/50"
-                  placeholder="student@college.edu"
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-            </div>
+          <div className="divider"><span>or use email</span></div>
 
-            {/* PASSWORD */}
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <p>Password</p>
-                <button onClick={() => setView("forgot")} className="text-purple-400 text-xs">
-                  Forgot?
-                </button>
-              </div>
-
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                <input
-                  type="password"
-                  className="w-full bg-white/10 border border-white/10 rounded-xl pl-9 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400/50"
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* BUTTONS */}
-            <button
-              onClick={handleLogin}
-              className="w-full bg-purple-500 hover:bg-purple-600 transition py-3 rounded-xl"
-            >
-              {loading ? <Loader2 className="animate-spin mx-auto" /> : "Login →"}
-            </button>
-
-            <button
-              onClick={handleSignUp}
-              className="w-full border border-white/10 py-3 rounded-xl text-sm"
-            >
-              Create Account
-            </button>
-
+          <div className="input-group">
+            <label>Email</label>
+            <input type="email" placeholder="student@college.edu" onChange={(e) => setEmail(e.target.value)} />
           </div>
-        )}
 
-        {/* FORGOT VIEW */}
-        {view === "forgot" && (
-          <div className="space-y-4">
-
-            <h2 className="text-lg font-semibold text-center">Reset Password</h2>
-
-            <input
-              className="w-full bg-white/10 border border-white/10 rounded-xl px-4 py-3 text-sm"
-              placeholder="Enter email"
-              onChange={(e) => setEmail(e.target.value)}
-            />
-
-            <button
-              onClick={handleResetPassword}
-              className="w-full bg-purple-500 py-3 rounded-xl"
-            >
-              Send Reset Link
-            </button>
-
-            <button
-              onClick={() => setView("auth")}
-              className="w-full flex items-center justify-center gap-2 text-sm text-gray-400"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
-
+          <div className="input-group" style={{ marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <label>Password</label>
+              {view === "login" && <span className="forgot-link" onClick={() => setView("forgot")}>Forgot?</span>}
+            </div>
+            <input type="password" placeholder="••••••••" onChange={(e) => setPassword(e.target.value)} />
           </div>
-        )}
 
+          <button onClick={handleAuth} disabled={loading} className="btn-primary" style={{ width: '100%' }}>
+            {loading ? "Please wait..." : view === "login" ? "Login →" : "Create Account ✨"}
+          </button>
+
+          <div style={{ textAlign: 'center', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+            <p style={{ fontSize: '13px', color: 'var(--text3)' }}>
+              {view === "login" ? "New to Basko?" : "Already have an account?"}
+              <button 
+                onClick={() => setView(view === "login" ? "signup" : "login")}
+                style={{ background: 'none', border: 'none', color: 'var(--violet)', fontWeight: '700', marginLeft: '6px', cursor: 'pointer' }}
+              >
+                {view === "login" ? "Create Account" : "Sign In"}
+              </button>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   )
