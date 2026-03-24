@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // ✨ This tells Vercel to ignore the small stuff and just LAUNCH
   typescript: {
     ignoreBuildErrors: true,
   },
